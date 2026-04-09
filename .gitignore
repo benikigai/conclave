@@ -1,0 +1,40 @@
+# Source material — never commit copyrighted files
+council/*/corpus/*
+!council/*/corpus/.gitkeep
+
+# Vector database files
+*.lance
+*.lancedb/
+chroma_db/
+*.chromadb/
+vector_stores/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Session artifacts (optional — uncomment if you want to keep sessions local)
+# sessions/
