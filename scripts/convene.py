@@ -15,7 +15,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import anthropic
 import click
 from rich.console import Console
 from rich.markdown import Markdown
@@ -23,6 +22,15 @@ from rich.markdown import Markdown
 # Import from sibling module
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from query import get_persona_names, load_persona, retrieve_context, build_system_prompt
+from llm import (
+    DEFAULT_MODEL,
+    DEFAULT_PROVIDER,
+    SUPPORTED_PROVIDERS,
+    create_async_client,
+    create_client,
+    model_for_provider,
+    response_text,
+)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -30,7 +38,6 @@ from query import get_persona_names, load_persona, retrieve_context, build_syste
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SESSIONS_DIR = PROJECT_ROOT / "sessions"
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
 DEFAULT_TOP_K = 5
 
 console = Console()
@@ -41,7 +48,7 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 async def query_persona_async(
-    client: anthropic.AsyncAnthropic,
+    client,
     persona: str,
     question: str,
     top_k: int,
@@ -59,20 +66,23 @@ async def query_persona_async(
         messages=[{"role": "user", "content": question}],
     )
 
-    return persona, response.content[0].text
+    return persona, response_text(response)
 
 
 async def query_all_personas(
     question: str,
     top_k: int = DEFAULT_TOP_K,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
+    provider: str = DEFAULT_PROVIDER,
 ) -> dict[str, str]:
     """Query all personas in parallel."""
-    client = anthropic.AsyncAnthropic()
+    selected_model = model or model_for_provider(provider)
+    client = create_async_client(provider)
     personas = get_persona_names()
 
     tasks = [
-        query_persona_async(client, p, question, top_k, model) for p in personas
+        query_persona_async(client, p, question, top_k, selected_model)
+        for p in personas
     ]
 
     results = await asyncio.gather(*tasks)
@@ -86,7 +96,8 @@ async def query_all_personas(
 def synthesize(
     question: str,
     responses: dict[str, str],
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
+    provider: str = DEFAULT_PROVIDER,
 ) -> str:
     """Run the synthesis prompt over all persona responses."""
     system_prompt = (
@@ -112,15 +123,16 @@ def synthesize(
         user_content += f"---\n\n{display_name.upper()}:\n{response}\n\n"
     user_content += "---\n\nSynthesize these into a Council Verdict."
 
-    client = anthropic.Anthropic()
+    selected_model = model or model_for_provider(provider)
+    client = create_client(provider)
     response = client.messages.create(
-        model=model,
+        model=selected_model,
         max_tokens=2048,
         system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
     )
 
-    return response.content[0].text
+    return response_text(response)
 
 
 # ---------------------------------------------------------------------------
@@ -179,25 +191,40 @@ def save_session(
     help="Number of chunks to retrieve per persona.",
 )
 @click.option(
+    "--provider",
+    type=click.Choice(SUPPORTED_PROVIDERS),
+    default=DEFAULT_PROVIDER,
+    show_default=True,
+    help="LLM provider to use.",
+)
+@click.option(
     "--model",
     type=str,
-    default=DEFAULT_MODEL,
-    show_default=True,
-    help="Claude model to use.",
+    default=None,
+    help=f"Model override (provider default: {DEFAULT_MODEL}).",
 )
 @click.option(
     "--save",
     is_flag=True,
     help="Save the session to sessions/ as a timestamped markdown file.",
 )
-def main(question: str, top_k: int, model: str, save: bool):
+def main(question: str, top_k: int, provider: str, model: str | None, save: bool):
     """Convene the full Council of Seven."""
     personas = get_persona_names()
+    selected_model = model or model_for_provider(provider)
     console.print(f"\n[bold]Convening the Council of Seven...[/bold]")
     console.print(f"  Querying: {', '.join(p.replace('-', ' ').title() for p in personas)}\n")
+    console.print(f"  Model: {provider}/{selected_model}\n")
 
     # Query all personas in parallel
-    responses = asyncio.run(query_all_personas(question, top_k=top_k, model=model))
+    responses = asyncio.run(
+        query_all_personas(
+            question,
+            top_k=top_k,
+            model=selected_model,
+            provider=provider,
+        )
+    )
 
     # Display individual responses
     for persona, response in responses.items():
@@ -206,7 +233,12 @@ def main(question: str, top_k: int, model: str, save: bool):
 
     # Run synthesis
     console.print("\n[bold]Synthesizing Council Verdict...[/bold]\n")
-    synthesis = synthesize(question, responses, model=model)
+    synthesis = synthesize(
+        question,
+        responses,
+        model=selected_model,
+        provider=provider,
+    )
     console.print(Markdown(f"## Council Synthesis\n\n{synthesis}"))
 
     # Save session if requested

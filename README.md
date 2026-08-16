@@ -4,7 +4,7 @@
 
 ---
 
-## Why a Council Instead of Just Asking Claude
+## Why a Council Instead of Just Asking One Model
 
 Here's the thing about asking a single AI for advice: you get one voice. It's articulate, it's helpful, and it converges on the median answer fast. But the median answer is rarely the right one for hard decisions.
 
@@ -57,6 +57,10 @@ cd conclave
 # Install dependencies
 pip install -r requirements.txt
 
+# The checked-in default uses Qwen3.8-27B on the Studio B Ollama endpoint.
+# Override the URL for another Ollama host.
+export CONCLAVE_OLLAMA_URL=http://localhost:11434
+
 # Add your source material to council/<persona>/corpus/
 # Then ingest it
 python scripts/ingest.py --persona warren-buffett
@@ -65,6 +69,11 @@ python scripts/ingest.py --persona warren-buffett
 python scripts/query.py --persona sun-tzu --question "I have 127 days to build something meaningful. How do I spend them?"
 
 # Convene the full council
+python scripts/convene.py --question "Should I leave my job to start a company?"
+
+# Anthropic remains available as an explicit cloud fallback.
+export CONCLAVE_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=...
 python scripts/convene.py --question "Should I leave my job to start a company?"
 ```
 

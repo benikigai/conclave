@@ -95,7 +95,7 @@ For each persona query:
    - System: persona definition + decision framework
    - Context: retrieved chunks, formatted with source attribution
    - User: the question/situation
-4. **Call the LLM** (Claude) with the assembled prompt
+4. **Call the configured LLM** with the assembled prompt
 5. **Return** the structured response
 
 ### Retrieval Parameters
@@ -136,7 +136,7 @@ Session files contain the original question, all seven responses, and the synthe
 
 ## Model Choice
 
-The reference implementation uses Claude (Anthropic API). The persona prompts and decision frameworks are model-agnostic — you can adapt them to any LLM that supports system prompts and handles long context well.
+The reference implementation defaults to Qwen3.8-27B through Ollama's Anthropic-compatible API, with Anthropic available as an explicit fallback. The persona prompts and decision frameworks are model-agnostic and work with any LLM that supports system prompts and handles long context well.
 
 Key considerations:
 - **Context window**: The system prompt (persona + framework + retrieved chunks) can be 5-8k tokens. The model needs headroom for reasoning.
