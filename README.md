@@ -77,6 +77,12 @@ export ANTHROPIC_API_KEY=...
 python scripts/convene.py --question "Should I leave my job to start a company?"
 ```
 
+Run the provider adapter regression tests without making model or cloud calls:
+
+```bash
+python -m unittest discover -s tests
+```
+
 ## Build Your Own
 
 The method is the product, not the data. This repo gives you the scaffolding to build your own council of advisors — with whatever archetypes matter to *your* decisions.
